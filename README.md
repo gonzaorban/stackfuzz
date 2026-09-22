@@ -1,107 +1,163 @@
 # stackfuzz
 
-A stack-aware [`ffuf`](https://github.com/ffuf/ffuf) wrapper.
+Un envoltorio de [`ffuf`](https://github.com/ffuf/ffuf) consciente del stack.
 
-`stackfuzz` sends a single recon request to a web target, fingerprints its
-technology stack from the response, and then runs `ffuf` with **curated
-wordlists chosen for that stack** — instead of fuzzing blindly with one generic
-list.
+`stackfuzz` envía una única petición de reconocimiento a un objetivo web,
+identifica su stack tecnológico a partir de la respuesta y luego ejecuta `ffuf`
+con **wordlists curadas para ese stack**, en lugar de fuzzear a ciegas con una
+lista genérica.
 
-Supported detections: **Django**, **Next.js**, **NestJS/Express**, **Flask**,
-**Laravel**. It can detect several at once, in which case their wordlists are
-merged (deduplicated). If nothing is detected, it falls back to `generic.txt`.
+Detecciones soportadas: **Django**, **Next.js**, **NestJS/Express**, **Flask**,
+**Laravel**. Puede detectar varias a la vez, en cuyo caso sus wordlists se
+combinan (sin duplicados). Si no detecta nada, recurre a `generic.txt`.
 
-## How it works
+## Cómo funciona
 
-1. **Recon** — one `httpx` GET to the base URL, collecting response headers and
-   cookies, plus a few probe paths (`/admin/`, `/_next/`, `/api/`).
-2. **Detect** — signature rules over headers / cookie names / probe status codes
-   (e.g. `x-powered-by: Next.js`, a `laravel_session` cookie, a `csrftoken`
-   cookie, a `Werkzeug` server header).
-3. **Resolve** — each detected tech maps to one or more bundled wordlists; several
-   techs are merged into a single deduplicated list.
-4. **Fuzz** — build and run `ffuf -u <target>/FUZZ -w <wordlist>`.
+1. **Reconocimiento** — un GET con `httpx` a la URL base, recogiendo cabeceras y
+   cookies de la respuesta, más unas pocas rutas de sondeo (`/admin/`,
+   `/_next/`, `/api/`).
+2. **Detección** — reglas de firma sobre cabeceras / nombres de cookies /
+   códigos de estado de los sondeos (p. ej. `x-powered-by: Next.js`, una cookie
+   `laravel_session`, una cookie `csrftoken`, una cabecera `Server` con
+   `Werkzeug`).
+3. **Resolución** — cada tecnología detectada se mapea a una o más wordlists
+   incluidas; si hay varias, se fusionan en una sola lista deduplicada.
+4. **Fuzzing** — se construye y ejecuta `ffuf -u <objetivo>/FUZZ -w <wordlist>`.
 
-## Requirements
+## Requisitos
 
 - Python **3.9+**
-- [`ffuf`](https://github.com/ffuf/ffuf) installed and on your `PATH`
-  (only needed to actually fuzz — `--dry-run` works without it).
+- [`ffuf`](https://github.com/ffuf/ffuf) instalado y accesible en el `PATH`
+  (solo hace falta para fuzzear de verdad — `--dry-run` funciona sin él).
 
-## Install
+Funciona en Linux, macOS y Windows; no requiere Kali ni ninguna distribución en
+particular.
 
-From the project root:
+## Instalación
+
+Desde la raíz del proyecto:
 
 ```bash
 pip install -e .
 ```
 
-This installs the `stackfuzz` command (via the `[project.scripts]` entry point)
-and bundles the wordlists as package data, so it works from anywhere once
-installed.
+Esto instala el comando `stackfuzz` (mediante el entry point de
+`[project.scripts]`) e incluye las wordlists como datos del paquete, de modo que
+funciona desde cualquier directorio una vez instalado.
 
-You can also run it without installing:
+También se puede ejecutar sin instalar:
 
 ```bash
 python -m stackfuzz https://example.com --dry-run
 ```
 
-## Usage
+## Uso
 
 ```bash
-stackfuzz <target-url> [--dry-run] [--timeout SECONDS] [-- <extra ffuf flags>]
+stackfuzz <url-objetivo> [--dry-run] [--timeout SEGUNDOS] [--no-color] [-- <flags extra de ffuf>]
 ```
 
-- `target` — required, must be a valid `http(s)://` URL.
-- `--dry-run` — print the assembled `ffuf` command instead of running it.
-- `--timeout` — HTTP timeout for the detection request (default: 10s).
-- Anything after `--` is passed straight through to `ffuf` (match codes,
-  threads, filters, etc.).
+- `target` — obligatorio, debe ser una URL `http(s)://` válida.
+- `--dry-run` — muestra el comando `ffuf` en lugar de ejecutarlo.
+- `--timeout` — tiempo límite HTTP para la petición de detección (por defecto: 10 s).
+- `--no-color` — desactiva los colores de la salida.
+- `--version` — muestra la versión y termina.
+- Todo lo que vaya después de `--` se pasa tal cual a `ffuf` (códigos de
+  coincidencia, hilos, filtros, etc.).
 
-### Examples
+### Ejemplos
 
-Detect and print the command that would run (no `ffuf` needed):
+Detectar y mostrar el comando que se ejecutaría (no hace falta `ffuf`):
 
 ```bash
 stackfuzz https://example.com --dry-run
 ```
 
-Detect and fuzz, adding your own ffuf flags:
+Detectar y fuzzear, añadiendo flags propios de ffuf:
 
 ```bash
 stackfuzz https://example.com -- -mc 200,301,302,401,403 -t 40
 ```
 
-## Limitation: detection is best-effort
+### Salida
 
-Stack detection relies on signals a server *may* expose, and production setups
-routinely hide them:
+```
+  stackfuzz v0.1.0
 
-- `x-powered-by` (the strongest signal for Next.js / Express) is usually
-  **stripped in production**.
-- A reverse proxy or CDN (nginx, Cloudflare, ...) commonly **overrides or
-  removes the `Server` header**, hiding Werkzeug/Gunicorn hints.
-- Cookies may not be set on the landing page, or may be renamed.
+  Objetivo    https://example.com
+  Respuesta   200 en 0.42s
 
-When no signal is found, `stackfuzz` does **not** guess — it falls back to
-`generic.txt`. Treat the detected stack as a hint, not a guarantee; when in
-doubt, run the generic list too.
+[✓] Stack detectado: Next.js
+    └─ señal: cabecera «x-powered-by: Next.js»
+    └─ señal: ruta /_next/ responde 200
+[»] Wordlist: nextjs.txt — 18 rutas
+
+[»] Comando ffuf (simulación, no se ejecuta):
+
+    ffuf -u https://example.com/FUZZ -w .../wordlists/nextjs.txt
+```
+
+Cada detección se justifica con la señal concreta que la disparó, para que se
+pueda juzgar si es fiable. Las advertencias y los errores se escriben en
+`stderr`, así que `stackfuzz ... > salida.txt` guarda solo el resultado. Los
+colores se activan solos cuando la salida es una terminal y se desactivan al
+redirigir, con `--no-color` o con la variable de entorno `NO_COLOR`.
+
+Códigos de salida: `0` correcto, `1` falta `ffuf`, `2` objetivo inválido.
+
+## Limitación: la detección es aproximada
+
+La detección depende de señales que el servidor *puede* exponer, y en producción
+es habitual que estén ocultas:
+
+- `x-powered-by` (la señal más fuerte para Next.js / Express) suele
+  **eliminarse en producción**.
+- Un proxy inverso o CDN (nginx, Cloudflare, ...) normalmente **sobrescribe o
+  elimina la cabecera `Server`**, ocultando pistas de Werkzeug/Gunicorn.
+- Las cookies pueden no establecerse en la página inicial, o estar renombradas.
+
+Cuando no encuentra ninguna señal, `stackfuzz` **no adivina**: recurre a
+`generic.txt`. Tratá el stack detectado como una pista, no como una certeza; ante
+la duda, ejecutá también la lista genérica.
 
 ## Wordlists
 
-This MVP ships **only its own curated wordlists** (`stackfuzz/wordlists/`) with
-realistic per-stack paths. It intentionally does **not** bundle or reference
-SecLists or Kali wordlist paths. To extend coverage, drop a `.txt` into
-`stackfuzz/wordlists/` and map it in `TECH_TO_LISTS` in
-[`stackfuzz/resolver.py`](stackfuzz/resolver.py).
+Este MVP incluye **únicamente sus propias wordlists curadas**
+(`stackfuzz/wordlists/`) con rutas realistas por stack. Deliberadamente **no**
+incluye ni referencia SecLists ni rutas de wordlists de Kali. Para ampliar la
+cobertura, agregá un `.txt` en `stackfuzz/wordlists/` y mapealo en
+`TECH_TO_LISTS`, dentro de [`stackfuzz/resolver.py`](stackfuzz/resolver.py).
 
-## Project layout
+## Desarrollo
+
+Instalar con las dependencias de desarrollo y ejecutar los tests:
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Los tests no salen a la red ni necesitan `ffuf`: el reconocimiento se simula con
+`httpx.MockTransport` y la ejecución de `ffuf` se sustituye con monkeypatch.
+
+## Estructura del proyecto
 
 ```
 stackfuzz/
-  detector.py   # recon + signature rules -> detected techs
-  resolver.py   # techs -> wordlists (merge + dedup when several)
-  runner.py     # build / check / run the ffuf command
-  cli.py        # argparse entry point
-  wordlists/    # curated per-stack wordlists
+  detector.py   # reconocimiento + reglas de firma -> tecnologías detectadas
+  resolver.py   # tecnologías -> wordlists (fusión y deduplicación si hay varias)
+  runner.py     # construcción / comprobación / ejecución del comando ffuf
+  output.py     # formato de la salida: colores, símbolos y bloques
+  cli.py        # entry point basado en argparse
+  wordlists/    # wordlists curadas por stack
 ```
+
+## Aviso legal
+
+Fuzzear lanza cientos de peticiones contra el objetivo. Usá `stackfuzz`
+únicamente sobre sistemas propios o sobre los que tengas autorización explícita
+por escrito.
+
+## Licencia
+
+MIT.
