@@ -71,11 +71,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _split_ffuf_args(argv: List[str]) -> tuple[List[str], List[str]]:
-    """Split argv into stackfuzz's own args and pass-through ffuf args.
+    """Separa argv entre los argumentos propios y los que se pasan a ffuf.
 
-    Everything after the first ``--`` is handed verbatim to ffuf. Splitting here
-    (rather than relying on ``argparse.REMAINDER``) keeps stackfuzz's own options
-    like ``--dry-run`` working regardless of where they appear.
+    Todo lo que va después del primer ``--`` se entrega tal cual a ffuf. Hacer
+    la división aquí (en vez de depender de ``argparse.REMAINDER``) mantiene
+    operativas las opciones propias como ``--dry-run`` aparezcan donde
+    aparezcan.
     """
     if "--" in argv:
         idx = argv.index("--")
@@ -169,9 +170,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return run(cmd, dry_run=args.dry_run)
     except FfufNotFound as exc:
         out.error(
-            f"ffuf no está disponible: {exc}",
-            "Instalalo desde https://github.com/ffuf/ffuf y asegurate de que "
-            "esté en el PATH",
+            str(exc),
+            "Hace falta solo para fuzzear: con --dry-run funciona igual",
         )
         return 1
 

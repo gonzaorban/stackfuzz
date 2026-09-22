@@ -1,4 +1,4 @@
-"""Tests for signature-based stack detection."""
+"""Tests de la detección de stack basada en firmas."""
 
 import httpx
 import pytest
@@ -14,7 +14,7 @@ from stackfuzz.detector import (
 )
 
 
-# --- detect(): rule coverage --------------------------------------------
+# --- detect(): cobertura de las reglas ----------------------------------
 
 
 def test_empty_probe_detects_nothing():
@@ -35,7 +35,7 @@ def test_django_via_admin_probe_and_powered_by():
 
 
 def test_admin_probe_alone_is_not_django():
-    # /admin/ is common to many stacks, so it must not trigger Django by itself.
+    # /admin/ es común a muchos stacks: por sí sola no debe disparar Django.
     assert detect(Probe(probe_paths={"/admin/": 302})) == set()
 
 
@@ -63,7 +63,7 @@ def test_flask_via_werkzeug_server():
 
 def test_flask_session_cookie_but_not_when_django():
     assert detect(Probe(cookies={"session": "x"})) == {Tech.FLASK}
-    # A Django session cookie present -> the bare 'session' rule must not fire.
+    # Si hay cookie de sesión de Django, la regla de 'session' no debe saltar.
     django = Probe(cookies={"session": "x", "csrftoken": "y"})
     assert detect(django) == {Tech.DJANGO}
 
@@ -85,7 +85,7 @@ def test_detection_is_case_insensitive():
     assert detect(Probe(headers={"x-powered-by": "EXPRESS"})) == {Tech.EXPRESS}
 
 
-# --- fetch_target(): recon over a mocked transport ----------------------
+# --- fetch_target(): reconocimiento sobre un transporte simulado --------
 
 
 def test_fetch_target_collects_headers_cookies_and_probes():
@@ -96,13 +96,14 @@ def test_fetch_target_collects_headers_cookies_and_probes():
                 headers={"x-powered-by": "Next.js", "set-cookie": "sid=abc"},
                 text="ok",
             )
-        # Probe paths: pretend /_next/ exists, others 404.
+        # Rutas de sondeo: se simula que /_next/ existe y el resto da 404.
         if request.url.path == "/_next/":
             return httpx.Response(200)
         return httpx.Response(404)
 
     transport = httpx.MockTransport(handler)
-    # fetch_target builds its own client, so patch httpx.Client to use the mock.
+    # fetch_target crea su propio cliente: se parchea httpx.Client para que
+    # use el transporte simulado.
     original = httpx.Client
 
     def client_factory(*args, **kwargs):
@@ -121,7 +122,7 @@ def test_fetch_target_collects_headers_cookies_and_probes():
     assert probe.probe_paths["/_next/"] == 200
     assert probe.probe_paths["/admin/"] == 404
     assert set(probe.probe_paths) == set(PROBE_PATHS)
-    # End to end: this probe should detect Next.js.
+    # De punta a punta: este probe debería detectar Next.js.
     assert Tech.NEXTJS in detect(probe)
 
 

@@ -1,10 +1,10 @@
-"""Map detected technologies to curated wordlists.
+"""Correspondencia entre las tecnologías detectadas y las wordlists curadas.
 
-Each :class:`~stackfuzz.detector.Tech` points at one or more wordlist files that
-ship with the package. When several technologies are detected the lists are
-merged into a single temporary file with duplicates removed (first occurrence
-wins, so order stays meaningful). When nothing is detected we fall back to
-``generic.txt``.
+Cada :class:`~stackfuzz.detector.Tech` apunta a uno o más ficheros de wordlist
+incluidos en el paquete. Cuando se detectan varias tecnologías, las listas se
+fusionan en un único fichero temporal sin duplicados (gana la primera aparición,
+de modo que el orden sigue siendo significativo). Si no se detecta nada, se
+recurre a ``generic.txt``.
 """
 
 from __future__ import annotations
@@ -18,8 +18,9 @@ from .detector import Tech
 
 GENERIC_WORDLIST = "generic.txt"
 
-# Each tech maps to the wordlist filename(s) that best fit it. Kept as a simple
-# filename list so it is trivial to add more curated lists per stack later.
+# Cada tecnología apunta al nombre (o nombres) de wordlist que mejor le encaja.
+# Se mantiene como una simple lista de nombres para que añadir más listas
+# curadas por stack sea trivial.
 TECH_TO_LISTS: Dict[Tech, List[str]] = {
     Tech.DJANGO: ["django.txt"],
     Tech.NEXTJS: ["nextjs.txt"],
@@ -30,19 +31,20 @@ TECH_TO_LISTS: Dict[Tech, List[str]] = {
 
 
 def wordlist_dir() -> Path:
-    """Return the path to the bundled ``wordlists`` directory.
+    """Devuelve la ruta al directorio ``wordlists`` incluido en el paquete.
 
-    Uses ``importlib.resources`` so it resolves correctly whether the package is
-    run from a source checkout or an installed wheel.
+    Usa ``importlib.resources`` para que se resuelva bien tanto si el paquete se
+    ejecuta desde el código fuente como desde un wheel instalado.
     """
     return Path(str(resources.files("stackfuzz") / "wordlists"))
 
 
 def resolve_wordlists(techs: Set[Tech]) -> List[Path]:
-    """Return the wordlist files for the detected techs (generic if empty).
+    """Devuelve las wordlists de las tecnologías detectadas (genérica si no hay).
 
-    The result preserves a stable order (techs sorted by value) so a given set
-    of detections always produces the same merged list.
+    El resultado mantiene un orden estable (tecnologías ordenadas por su valor),
+    de modo que un mismo conjunto de detecciones produce siempre la misma lista
+    fusionada.
     """
     directory = wordlist_dir()
 
@@ -72,7 +74,7 @@ def count_entries(path: Path) -> int:
 
 
 def _read_entries(path: Path) -> Iterable[str]:
-    """Yield non-empty, non-comment lines from a wordlist file."""
+    """Genera las líneas de una wordlist que no están vacías ni son comentarios."""
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line and not line.startswith("#"):
@@ -80,14 +82,15 @@ def _read_entries(path: Path) -> Iterable[str]:
 
 
 def build_merged_wordlist(paths: List[Path]) -> Path:
-    """Return a single wordlist path for ffuf.
+    """Devuelve una única ruta de wordlist para pasarle a ffuf.
 
-    A single input is returned untouched. Multiple inputs are merged into a new
-    temporary ``.txt`` file with duplicates removed, preserving first-seen order.
-    The temp file is created with ``delete=False``; the caller owns its cleanup.
+    Si solo hay una entrada, se devuelve sin tocar. Varias entradas se fusionan
+    en un fichero ``.txt`` temporal nuevo, sin duplicados y conservando el orden
+    de primera aparición. El temporal se crea con ``delete=False``: su limpieza
+    queda en manos de quien llama.
     """
     if not paths:
-        raise ValueError("no wordlists to merge")
+        raise ValueError("no hay wordlists que fusionar")
     if len(paths) == 1:
         return paths[0]
 

@@ -1,4 +1,4 @@
-"""Enable ``python -m stackfuzz``."""
+"""Permite ejecutar ``python -m stackfuzz``."""
 
 from .cli import main
 

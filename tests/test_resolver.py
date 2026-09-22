@@ -1,4 +1,4 @@
-"""Tests for tech -> wordlist resolution and merging."""
+"""Tests de la resolución tecnología -> wordlist y de su fusión."""
 
 from pathlib import Path
 

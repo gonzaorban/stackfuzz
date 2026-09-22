@@ -1,4 +1,4 @@
-"""Build and execute the ffuf command."""
+"""Construcción y ejecución del comando ffuf."""
 
 from __future__ import annotations
 
@@ -11,33 +11,35 @@ FFUF_INSTALL_URL = "https://github.com/ffuf/ffuf"
 
 
 class FfufNotFound(RuntimeError):
-    """Raised when the ffuf binary is not available on PATH."""
+    """Se lanza cuando el binario de ffuf no está disponible en el PATH."""
 
 
 def ensure_ffuf() -> None:
-    """Raise :class:`FfufNotFound` if ffuf is not on PATH."""
+    """Lanza :class:`FfufNotFound` si ffuf no está en el PATH."""
     if shutil.which("ffuf") is None:
         raise FfufNotFound(
-            "ffuf not found on PATH. Install it from " f"{FFUF_INSTALL_URL}"
+            "No se encontró ffuf en el PATH. Instalalo desde "
+            f"{FFUF_INSTALL_URL}"
         )
 
 
 def build_command(target: str, wordlist: Path, extra: List[str]) -> List[str]:
-    """Assemble the ffuf argv.
+    """Arma el argv de ffuf.
 
-    Keeps ffuf flags minimal: only ``-u <target>/FUZZ`` and ``-w <wordlist>``.
-    Any ``extra`` arguments are passed through verbatim so the user can add their
-    own ffuf flags (match codes, threads, filters, ...).
+    Mantiene al mínimo los flags de ffuf: solo ``-u <objetivo>/FUZZ`` y
+    ``-w <wordlist>``. Los argumentos de ``extra`` se pasan tal cual, para que
+    el usuario pueda añadir sus propios flags (códigos de coincidencia, hilos,
+    filtros, ...).
     """
     url = target.rstrip("/") + "/FUZZ"
     return ["ffuf", "-u", url, "-w", str(wordlist), *extra]
 
 
 def run(cmd: List[str], dry_run: bool) -> int:
-    """Execute the command, or do nothing on a dry run, returning an exit code.
+    """Ejecuta el comando, o no hace nada en simulación, y devuelve su código.
 
-    Displaying the command is the caller's job (see ``stackfuzz.output``), so a
-    dry run is a no-op here beyond skipping execution.
+    Mostrar el comando es tarea de quien llama (ver ``stackfuzz.output``), así
+    que aquí una simulación no hace nada más que saltarse la ejecución.
     """
     if dry_run:
         return 0

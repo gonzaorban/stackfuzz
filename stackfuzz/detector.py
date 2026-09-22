@@ -1,10 +1,11 @@
-"""Best-effort tech-stack fingerprinting from an initial HTTP response.
+"""Identificación aproximada del stack a partir de una respuesta HTTP inicial.
 
-Detection relies only on cheap, side-effect-free signals: response headers,
-cookie names, and the status codes of a couple of probe paths. It never parses
-response bodies. Signals are unreliable in production (proxies strip
-``x-powered-by`` and hide ``Server``), so ``detect`` is allowed to return an
-empty set and the caller falls back to a generic wordlist.
+La detección usa solo señales baratas y sin efectos secundarios: cabeceras de
+respuesta, nombres de cookies y los códigos de estado de un par de rutas de
+sondeo. Nunca analiza el cuerpo de la respuesta. Las señales son poco fiables en
+producción (los proxies eliminan ``x-powered-by`` y ocultan ``Server``), así que
+``detect`` puede devolver un conjunto vacío y quien la llama recurre a una
+wordlist genérica.
 """
 
 from __future__ import annotations
@@ -15,17 +16,18 @@ from typing import Dict, List, Set
 
 import httpx
 
-# Probe paths requested in addition to the base URL. Their status codes feed a
-# few of the detection rules below.
+# Rutas de sondeo que se piden además de la URL base. Sus códigos de estado
+# alimentan algunas de las reglas de detección de más abajo.
 PROBE_PATHS: List[str] = ["/admin/", "/_next/", "/api/"]
 
-# A probe path is treated as "present" (i.e. a positive signal) when it responds
-# with one of these codes. 404 / connection errors are treated as absent.
+# Una ruta de sondeo se considera "presente" (es decir, señal positiva) cuando
+# responde con alguno de estos códigos. Un 404 o un error de conexión se tratan
+# como ausencia.
 _PRESENT_CODES = frozenset({200, 301, 302, 307, 401, 403})
 
 
 class Tech(str, Enum):
-    """A detectable technology stack."""
+    """Una tecnología que el detector es capaz de reconocer."""
 
     DJANGO = "django"
     NEXTJS = "nextjs"
@@ -51,10 +53,11 @@ def label(tech: "Tech") -> str:
 
 @dataclass
 class Probe:
-    """Recon results for a single target.
+    """Resultado del reconocimiento de un objetivo.
 
-    ``headers`` keys and ``cookies`` keys are normalised to lower case so rules
-    can match without worrying about the casing a server happens to use.
+    Las claves de ``headers`` y ``cookies`` se normalizan a minúsculas para que
+    las reglas puedan coincidir sin preocuparse por las mayúsculas que use cada
+    servidor.
     """
 
     status: int = 0
@@ -63,24 +66,24 @@ class Probe:
     probe_paths: Dict[str, int] = field(default_factory=dict)
 
     def header(self, name: str) -> str:
-        """Return a header value (lower-cased) or an empty string if absent."""
+        """Devuelve el valor de una cabecera, o cadena vacía si no está."""
         return self.headers.get(name.lower(), "")
 
     def has_cookie(self, name: str) -> bool:
-        """Return whether a cookie with the given name (case-insensitive) is set."""
+        """Indica si existe una cookie con ese nombre (sin distinguir mayúsculas)."""
         return name.lower() in self.cookies
 
     def probe_present(self, path: str) -> bool:
-        """Return whether a probe path responded with a "present" status code."""
+        """Indica si una ruta de sondeo respondió con un código de "presente"."""
         return self.probe_paths.get(path, 0) in _PRESENT_CODES
 
 
 def fetch_target(url: str, timeout: float = 10.0) -> Probe:
-    """Fetch the base URL and probe paths, returning a :class:`Probe`.
+    """Pide la URL base y las rutas de sondeo, devolviendo un :class:`Probe`.
 
-    Network failures on the base request raise ``httpx.HTTPError`` so the caller
-    can decide how to degrade. Failures on individual probe paths are swallowed
-    (recorded as status ``0``) since they are only supplementary signals.
+    Los fallos de red en la petición base lanzan ``httpx.HTTPError`` para que
+    quien la llama decida cómo degradar. Los fallos en rutas de sondeo concretas
+    se ignoran (se registran con estado ``0``), ya que son señales secundarias.
     """
     base = url.rstrip("/")
     with httpx.Client(follow_redirects=True, timeout=timeout) as client:
@@ -114,16 +117,16 @@ def _powered_by(probe: Probe) -> str:
 
 
 def detect(probe: Probe) -> Set[Tech]:
-    """Apply signature rules to a probe, returning the detected technologies.
+    """Aplica las reglas de firma a un probe y devuelve las tecnologías halladas.
 
-    Multiple technologies may match. An empty set means no signal was found and
-    the caller should fall back to the generic wordlist.
+    Pueden coincidir varias tecnologías. Un conjunto vacío significa que no se
+    encontró ninguna señal y que conviene recurrir a la wordlist genérica.
     """
     techs: Set[Tech] = set()
 
     # --- Django -----------------------------------------------------------
-    # Django's admin ships CSRF/session cookies with well-known names, and its
-    # /admin/ route is almost always mounted (redirecting to a login).
+    # El admin de Django emite cookies de CSRF/sesión con nombres conocidos, y
+    # su ruta /admin/ casi siempre está montada (redirige a un login).
     if probe.has_cookie("csrftoken") or probe.has_cookie("sessionid"):
         techs.add(Tech.DJANGO)
     if probe.probe_present("/admin/") and "django" in _powered_by(probe):
@@ -138,13 +141,15 @@ def detect(probe: Probe) -> Set[Tech]:
         techs.add(Tech.NEXTJS)
 
     # --- Express / NestJS -------------------------------------------------
-    # NestJS runs on Express by default, so both surface as Express here.
+    # NestJS corre sobre Express por defecto, así que ambos aparecen como
+    # Express aquí.
     if "express" in _powered_by(probe):
         techs.add(Tech.EXPRESS)
 
     # --- Flask ------------------------------------------------------------
-    # Werkzeug is Flask's WSGI layer and leaks into the Server header on the
-    # dev server. The signed "session" cookie is a weaker, secondary signal.
+    # Werkzeug es la capa WSGI de Flask y se filtra en la cabecera Server del
+    # servidor de desarrollo. La cookie firmada "session" es una señal más
+    # débil, secundaria.
     if "werkzeug" in _server(probe):
         techs.add(Tech.FLASK)
     if probe.has_cookie("session") and not (

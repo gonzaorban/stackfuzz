@@ -1,4 +1,4 @@
-"""Tests for building, checking and dispatching the ffuf command."""
+"""Tests de la construcción, comprobación y lanzamiento del comando ffuf."""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from stackfuzz.runner import (
 def test_build_command_basic():
     wl = Path("wordlist.txt")
     cmd = build_command("https://example.com", wl, [])
-    # -w carries the OS-native string form of the path, so compare against that.
+    # -w lleva la forma nativa del sistema para la ruta: se compara con eso.
     assert cmd == [
         "ffuf",
         "-u",
@@ -37,7 +37,8 @@ def test_build_command_appends_extra_args():
 
 
 def test_dry_run_does_not_execute(capsys, monkeypatch):
-    # If run() tried to execute, this would blow up; dry-run must not reach it.
+    # Si run() intentara ejecutar, esto reventaría: la simulación no debe
+    # llegar ahí.
     monkeypatch.setattr(
         runner.subprocess, "run", lambda *a, **k: pytest.fail("should not run")
     )

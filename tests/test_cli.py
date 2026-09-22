@@ -1,4 +1,4 @@
-"""Tests for the CLI: validation, arg splitting, and the end-to-end flow."""
+"""Tests del CLI: validación, separación de argumentos y flujo completo."""
 
 import httpx
 import pytest
@@ -39,7 +39,7 @@ def test_split_with_separator():
     assert extra == ["-mc", "200"]
 
 
-# --- main(): exit codes and flow ---------------------------------------
+# --- main(): códigos de salida y flujo ---------------------------------
 
 
 def test_main_invalid_target_returns_2(capsys):
@@ -95,10 +95,11 @@ def test_main_ffuf_missing_returns_1(monkeypatch, capsys):
     from stackfuzz.detector import Probe
 
     _stub_fetch(monkeypatch, probe=Probe())
-    # ensure_ffuf resolves shutil.which in the runner module, so patch it there.
+    # ensure_ffuf resuelve shutil.which en el módulo runner: hay que
+    # parchearlo allí.
     from stackfuzz import runner
 
     monkeypatch.setattr(runner.shutil, "which", lambda _: None)
     code = main(["https://example.com"])  # not dry-run
     assert code == 1
-    assert "ffuf not found" in capsys.readouterr().err
+    assert "No se encontró ffuf en el PATH" in capsys.readouterr().err
