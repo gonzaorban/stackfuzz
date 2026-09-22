@@ -59,6 +59,18 @@ def resolve_wordlists(techs: Set[Tech]) -> List[Path]:
     return paths
 
 
+def count_entries(path: Path) -> int:
+    """Devuelve cuántas rutas efectivas contiene una wordlist.
+
+    Ignora líneas en blanco y comentarios, de modo que el número coincida con lo
+    que ffuf realmente va a probar.
+    """
+    try:
+        return sum(1 for _ in _read_entries(path))
+    except OSError:
+        return 0
+
+
 def _read_entries(path: Path) -> Iterable[str]:
     """Yield non-empty, non-comment lines from a wordlist file."""
     for raw in path.read_text(encoding="utf-8").splitlines():

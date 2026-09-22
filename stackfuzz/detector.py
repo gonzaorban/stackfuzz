@@ -34,6 +34,21 @@ class Tech(str, Enum):
     LARAVEL = "laravel"
 
 
+# Nombre presentable de cada tecnología, para los mensajes del CLI.
+TECH_LABELS: Dict["Tech", str] = {
+    Tech.DJANGO: "Django",
+    Tech.NEXTJS: "Next.js",
+    Tech.EXPRESS: "NestJS/Express",
+    Tech.FLASK: "Flask",
+    Tech.LARAVEL: "Laravel",
+}
+
+
+def label(tech: "Tech") -> str:
+    """Devuelve el nombre presentable de una tecnología."""
+    return TECH_LABELS.get(tech, tech.value)
+
+
 @dataclass
 class Probe:
     """Recon results for a single target.
@@ -142,3 +157,51 @@ def detect(probe: Probe) -> Set[Tech]:
         techs.add(Tech.LARAVEL)
 
     return techs
+
+
+def explain(probe: Probe) -> Dict[Tech, List[str]]:
+    """Describe, por tecnología, qué señales de :func:`detect` se activaron.
+
+    Sirve para que el CLI pueda justificar cada detección. Refleja las mismas
+    reglas que :func:`detect`, de modo que sus claves siempre coinciden con el
+    conjunto que aquella devuelve.
+    """
+    reasons: Dict[Tech, List[str]] = {}
+
+    def add(tech: Tech, reason: str) -> None:
+        reasons.setdefault(tech, []).append(reason)
+
+    # --- Django -----------------------------------------------------------
+    for cookie in ("csrftoken", "sessionid"):
+        if probe.has_cookie(cookie):
+            add(Tech.DJANGO, f"cookie «{cookie}»")
+    if probe.probe_present("/admin/") and "django" in _powered_by(probe):
+        add(Tech.DJANGO, "cabecera «x-powered-by: Django» y /admin/ accesible")
+
+    # --- Next.js ----------------------------------------------------------
+    if "next.js" in _powered_by(probe):
+        add(Tech.NEXTJS, "cabecera «x-powered-by: Next.js»")
+    for header in sorted(h for h in probe.headers if h.startswith("x-nextjs-")):
+        add(Tech.NEXTJS, f"cabecera «{header}»")
+    if probe.probe_present("/_next/"):
+        status = probe.probe_paths.get("/_next/", 0)
+        add(Tech.NEXTJS, f"ruta /_next/ responde {status}")
+
+    # --- Express / NestJS -------------------------------------------------
+    if "express" in _powered_by(probe):
+        add(Tech.EXPRESS, "cabecera «x-powered-by: Express»")
+
+    # --- Flask ------------------------------------------------------------
+    if "werkzeug" in _server(probe):
+        add(Tech.FLASK, f"cabecera «server: {probe.header('server')}»")
+    if probe.has_cookie("session") and not (
+        probe.has_cookie("csrftoken") or probe.has_cookie("sessionid")
+    ):
+        add(Tech.FLASK, "cookie «session» (sin cookies de Django)")
+
+    # --- Laravel ----------------------------------------------------------
+    for cookie in ("laravel_session", "xsrf-token"):
+        if probe.has_cookie(cookie):
+            add(Tech.LARAVEL, f"cookie «{cookie}»")
+
+    return reasons

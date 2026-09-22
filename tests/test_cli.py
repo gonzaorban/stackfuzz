@@ -44,7 +44,7 @@ def test_split_with_separator():
 
 def test_main_invalid_target_returns_2(capsys):
     assert main(["notaurl"]) == 2
-    assert "invalid target" in capsys.readouterr().err
+    assert "URL objetivo inválida" in capsys.readouterr().err
 
 
 def _stub_fetch(monkeypatch, probe=None, error=None):
@@ -65,7 +65,9 @@ def test_main_dry_run_prints_command_and_returns_0(monkeypatch, capsys):
     code = main(["https://example.com", "--dry-run"])
     out = capsys.readouterr().out
     assert code == 0
-    assert "detected stack: nextjs" in out
+    assert "Stack detectado: Next.js" in out
+    # La detección se justifica con la señal que la disparó.
+    assert "x-powered-by: Next.js" in out
     assert "ffuf -u https://example.com/FUZZ" in out
 
 
@@ -74,8 +76,8 @@ def test_main_network_error_falls_back_to_generic(monkeypatch, capsys):
     code = main(["https://example.com", "--dry-run"])
     captured = capsys.readouterr()
     assert code == 0
-    assert "falling back to generic wordlist" in captured.err
-    assert "none detected -> using generic wordlist" in captured.out
+    assert "No se pudo alcanzar el objetivo" in captured.err
+    assert "Stack detectado: ninguno" in captured.out
     assert "generic.txt" in captured.out
 
 

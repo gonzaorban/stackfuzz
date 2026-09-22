@@ -36,15 +36,15 @@ def test_build_command_appends_extra_args():
     assert cmd[-4:] == ["-mc", "200", "-t", "40"]
 
 
-def test_dry_run_prints_and_does_not_execute(capsys, monkeypatch):
+def test_dry_run_does_not_execute(capsys, monkeypatch):
     # If run() tried to execute, this would blow up; dry-run must not reach it.
     monkeypatch.setattr(
         runner.subprocess, "run", lambda *a, **k: pytest.fail("should not run")
     )
     code = run(["ffuf", "-u", "https://x/FUZZ", "-w", "wl.txt"], dry_run=True)
-    out = capsys.readouterr().out
     assert code == 0
-    assert "ffuf -u https://x/FUZZ -w wl.txt" in out
+    # Mostrar el comando es tarea del CLI, no del runner.
+    assert capsys.readouterr().out == ""
 
 
 def test_ensure_ffuf_raises_when_missing(monkeypatch):

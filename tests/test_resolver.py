@@ -6,6 +6,7 @@ from stackfuzz.detector import Tech
 from stackfuzz.resolver import (
     TECH_TO_LISTS,
     build_merged_wordlist,
+    count_entries,
     resolve_wordlists,
     wordlist_dir,
 )
@@ -67,3 +68,35 @@ def test_merge_skips_blank_and_comment_lines(tmp_path: Path):
     lines = Path(merged).read_text(encoding="utf-8").splitlines()
 
     assert lines == ["admin", "api/"]
+
+
+# --- count_entries ------------------------------------------------------
+
+
+def test_count_entries_ignores_blanks_and_comments(tmp_path: Path):
+    wl = tmp_path / "wl.txt"
+    wl.write_text("# comentario\n\nadmin\napi/\n   \n", encoding="utf-8")
+    assert count_entries(wl) == 2
+
+
+def test_count_entries_matches_bundled_list():
+    generic = wordlist_dir() / "generic.txt"
+    lines = [
+        line.strip()
+        for line in generic.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    assert count_entries(generic) == len(lines)
+
+
+def test_count_entries_returns_zero_for_missing_file(tmp_path: Path):
+    assert count_entries(tmp_path / "no-existe.txt") == 0
+
+
+def test_count_entries_of_merged_list_is_deduplicated(tmp_path: Path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("admin\napi/\n", encoding="utf-8")
+    b.write_text("api/\ndashboard\n", encoding="utf-8")
+    merged = build_merged_wordlist([a, b])
+    assert count_entries(merged) == 3

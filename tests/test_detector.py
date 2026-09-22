@@ -3,7 +3,15 @@
 import httpx
 import pytest
 
-from stackfuzz.detector import PROBE_PATHS, Probe, Tech, detect, fetch_target
+from stackfuzz.detector import (
+    PROBE_PATHS,
+    Probe,
+    Tech,
+    detect,
+    explain,
+    fetch_target,
+    label,
+)
 
 
 # --- detect(): rule coverage --------------------------------------------
@@ -134,3 +142,69 @@ def test_fetch_target_raises_on_base_request_failure():
             fetch_target("https://example.com")
     finally:
         httpx.Client = original
+
+
+# --- explain(): señales que justifican cada detección -------------------
+
+
+def test_explain_is_empty_when_nothing_detected():
+    assert explain(Probe()) == {}
+
+
+def test_explain_names_the_cookie_for_django():
+    reasons = explain(Probe(cookies={"csrftoken": "x"}))
+    assert "csrftoken" in " ".join(reasons[Tech.DJANGO])
+
+
+def test_explain_names_the_header_for_nextjs():
+    reasons = explain(Probe(headers={"x-powered-by": "Next.js"}))
+    assert "x-powered-by" in " ".join(reasons[Tech.NEXTJS])
+
+
+def test_explain_reports_probe_status():
+    reasons = explain(Probe(probe_paths={"/_next/": 200}))
+    assert "/_next/" in " ".join(reasons[Tech.NEXTJS])
+    assert "200" in " ".join(reasons[Tech.NEXTJS])
+
+
+def test_explain_collects_several_signals_for_one_tech():
+    probe = Probe(
+        headers={"x-powered-by": "Next.js", "x-nextjs-cache": "HIT"},
+        probe_paths={"/_next/": 200},
+    )
+    assert len(explain(probe)[Tech.NEXTJS]) == 3
+
+
+@pytest.mark.parametrize(
+    "probe",
+    [
+        Probe(),
+        Probe(cookies={"csrftoken": "x"}),
+        Probe(headers={"x-powered-by": "Next.js"}),
+        Probe(headers={"server": "Werkzeug/3.0.1"}),
+        Probe(cookies={"laravel_session": "x"}),
+        Probe(cookies={"session": "x"}),
+        Probe(headers={"x-powered-by": "Express"}),
+        Probe(
+            headers={"x-powered-by": "Next.js"},
+            cookies={"csrftoken": "y"},
+            probe_paths={"/_next/": 200},
+        ),
+    ],
+)
+def test_explain_keys_always_match_detect(probe):
+    # Si una regla cambia en detect() y no en explain(), esto lo delata.
+    assert set(explain(probe)) == detect(probe)
+
+
+# --- label() ------------------------------------------------------------
+
+
+def test_every_tech_has_a_readable_label():
+    for tech in Tech:
+        assert label(tech) and label(tech) != tech.value.upper()
+
+
+def test_label_is_human_readable():
+    assert label(Tech.NEXTJS) == "Next.js"
+    assert label(Tech.EXPRESS) == "NestJS/Express"

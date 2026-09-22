@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -35,9 +34,12 @@ def build_command(target: str, wordlist: Path, extra: List[str]) -> List[str]:
 
 
 def run(cmd: List[str], dry_run: bool) -> int:
-    """Print the command (dry run) or execute it, returning an exit code."""
+    """Execute the command, or do nothing on a dry run, returning an exit code.
+
+    Displaying the command is the caller's job (see ``stackfuzz.output``), so a
+    dry run is a no-op here beyond skipping execution.
+    """
     if dry_run:
-        print(shlex.join(cmd))
         return 0
 
     ensure_ffuf()
