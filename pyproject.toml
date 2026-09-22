@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Un envoltorio de ffuf consciente del stack: detecta el stack tecnológico de un objetivo web y lo fuzzea con wordlists curadas."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 authors = [{ name = "gonzaorban" }]
 dependencies = ["httpx"]
 

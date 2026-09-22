@@ -160,4 +160,8 @@ por escrito.
 
 ## Licencia
 
-MIT.
+Publicado bajo la licencia MIT — ver [LICENSE](LICENSE) para el texto completo.
+
+En resumen: podés usar, modificar y distribuir este código, incluso con fines
+comerciales, siempre que conserves el aviso de copyright. El software se
+entrega sin garantía de ningún tipo.
