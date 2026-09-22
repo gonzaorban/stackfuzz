@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "stackfuzz"
 version = "0.1.0"
-description = "A stack-aware ffuf wrapper: detect a web target's tech stack and fuzz it with curated wordlists."
+description = "Un envoltorio de ffuf consciente del stack: detecta el stack tecnológico de un objetivo web y lo fuzzea con wordlists curadas."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

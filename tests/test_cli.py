@@ -103,3 +103,70 @@ def test_main_ffuf_missing_returns_1(monkeypatch, capsys):
     code = main(["https://example.com"])  # not dry-run
     assert code == 1
     assert "No se encontró ffuf en el PATH" in capsys.readouterr().err
+
+
+# --- ayuda y errores de argparse, en español ---------------------------
+
+
+def _capturar(capsys, argv):
+    """Ejecuta main() esperando que argparse salga, y devuelve (out, err)."""
+    with pytest.raises(SystemExit) as exc:
+        main(argv)
+    captured = capsys.readouterr()
+    return captured.out, captured.err, exc.value.code
+
+
+def test_help_is_fully_in_spanish(capsys):
+    out, _, code = _capturar(capsys, ["--help"])
+    assert code == 0
+    assert out.startswith("uso:")
+    assert "argumentos posicionales:" in out
+    assert "opciones:" in out
+    assert "muestra esta ayuda y termina" in out
+    # Nada de los rótulos propios de argparse debe sobrevivir.
+    for ingles in ("usage:", "positional arguments:", "options:", "show this help"):
+        assert ingles not in out
+
+
+def test_help_metavars_match_the_usage_line(capsys):
+    out, _, _ = _capturar(capsys, ["--help"])
+    assert "objetivo" in out
+    assert "--timeout SEGUNDOS" in out
+    # 'target' es el nombre del atributo, pero no debe mostrarse al usuario.
+    assert "  target " not in out
+    assert "TIMEOUT" not in out
+
+
+def test_missing_argument_error_is_in_spanish(capsys):
+    _, err, code = _capturar(capsys, [])
+    assert code == 2
+    assert "faltan argumentos obligatorios" in err
+    assert "the following arguments are required" not in err
+
+
+def test_unrecognised_argument_error_is_in_spanish(capsys):
+    _, err, code = _capturar(capsys, ["https://x.com", "--inventado"])
+    assert code == 2
+    assert "argumentos no reconocidos" in err
+    assert "unrecognized arguments" not in err
+
+
+def test_invalid_value_error_is_in_spanish(capsys):
+    _, err, code = _capturar(capsys, ["https://x.com", "--timeout", "abc"])
+    assert code == 2
+    assert "valor decimal inválido" in err
+    assert "argumento --timeout" in err
+    assert "invalid float value" not in err
+
+
+def test_error_output_starts_with_translated_usage(capsys):
+    _, err, _ = _capturar(capsys, [])
+    assert err.startswith("uso:")
+
+
+def test_version_reports_the_package_version(capsys):
+    from stackfuzz import __version__
+
+    out, _, code = _capturar(capsys, ["--version"])
+    assert code == 0
+    assert __version__ in out

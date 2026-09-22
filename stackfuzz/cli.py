@@ -6,7 +6,7 @@ import argparse
 import shlex
 import sys
 import time
-from typing import List, Optional
+from typing import List, NoReturn, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -32,8 +32,43 @@ def validate_target(url: str) -> str:
     return url
 
 
+# argparse redacta en inglés sus propios errores (argumento faltante, flag
+# desconocido, valor inválido). Se traducen con sustituciones sobre el mensaje
+# ya formateado, que es el único punto donde argparse lo expone.
+_ERRORES = (
+    ("the following arguments are required:", "faltan argumentos obligatorios:"),
+    ("unrecognized arguments:", "argumentos no reconocidos:"),
+    ("expected one argument", "se esperaba un argumento"),
+    ("expected at least one argument", "se esperaba al menos un argumento"),
+    ("invalid float value:", "valor decimal inválido:"),
+    ("invalid int value:", "valor entero inválido:"),
+    ("invalid choice:", "opción inválida:"),
+    ("argument ", "argumento "),
+)
+
+
+class _ParserEnEspanol(argparse.ArgumentParser):
+    """``ArgumentParser`` que emite en español su ayuda y sus errores.
+
+    argparse construye estos textos internamente y no ofrece puntos de
+    traducción, así que se reescriben sobre el mensaje ya compuesto.
+    """
+
+    def error(self, message: str) -> "NoReturn":  # type: ignore[override]
+        for ingles, espanol in _ERRORES:
+            message = message.replace(ingles, espanol)
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {message}\n")
+
+    def format_usage(self) -> str:
+        return super().format_usage().replace("usage:", "uso:", 1)
+
+    def format_help(self) -> str:
+        return super().format_help().replace("usage:", "uso:", 1)
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _ParserEnEspanol(
         prog="stackfuzz",
         description=(
             "Detecta el stack tecnológico de un objetivo web y lo fuzzea con "
@@ -43,6 +78,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "Se pueden pasar flags adicionales a ffuf después de '--', p. ej. "
             "stackfuzz https://t.tld -- -mc 200,301 -t 40"
         ),
+        # argparse rotula «usage:» y su propio -h en inglés; se sustituyen para
+        # que toda la ayuda quede en un solo idioma.
+        usage=(
+            "stackfuzz [-h] [--dry-run] [--timeout SEGUNDOS] [--no-color] "
+            "[--version] objetivo [-- FLAGS_FFUF]"
+        ),
+        add_help=False,
+    )
+    parser.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        help="muestra esta ayuda y termina",
     )
     parser.add_argument(
         "--dry-run",
@@ -53,6 +101,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--timeout",
         type=float,
         default=10.0,
+        metavar="SEGUNDOS",
         help="tiempo límite HTTP en segundos para la detección (por defecto: 10)",
     )
     parser.add_argument(
@@ -66,7 +115,14 @@ def _build_parser() -> argparse.ArgumentParser:
         version=f"stackfuzz {__version__}",
         help="muestra la versión y termina",
     )
-    parser.add_argument("target", help="URL objetivo, p. ej. https://example.com")
+    parser.add_argument(
+        "target",
+        metavar="objetivo",
+        help="URL objetivo, p. ej. https://example.com",
+    )
+
+    parser._positionals.title = "argumentos posicionales"
+    parser._optionals.title = "opciones"
     return parser
 
 
