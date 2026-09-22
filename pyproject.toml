@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stackfuzz"
+version = "0.1.0"
+description = "A stack-aware ffuf wrapper: detect a web target's tech stack and fuzz it with curated wordlists."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "gonzaorban" }]
+dependencies = ["httpx"]
+
+[project.scripts]
+stackfuzz = "stackfuzz.cli:main"
+
+[tool.setuptools]
+packages = ["stackfuzz"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+stackfuzz = ["wordlists/*.txt"]
